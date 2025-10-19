@@ -38,6 +38,10 @@ void hx711_init(hx711_t* hx711, gpio_num_t dout, gpio_num_t sck)
     
     ESP_LOGI(TAG, "HX711 initialized on DT=GPIO%d, SCK=GPIO%d", dout, sck);
     
+    // Wait for HX711 to stabilize after power-up
+    ESP_LOGI(TAG, "Waiting for HX711 to stabilize...");
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    
     // Read once to set gain
     hx711_read(hx711);
 }
@@ -49,12 +53,12 @@ bool hx711_is_ready(hx711_t* hx711)
 
 long hx711_read(hx711_t* hx711)
 {
-    // Wait for the chip to become ready
+    // Wait for the chip to become ready (increased timeout for slower modules)
     int timeout = 0;
     while (!hx711_is_ready(hx711)) {
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(pdMS_TO_TICKS(10));  // Increased delay
         timeout++;
-        if (timeout > 100) {
+        if (timeout > 100) {  // 1000ms total timeout
             ESP_LOGW(TAG, "HX711 not ready timeout");
             return 0;
         }
