@@ -1,176 +1,187 @@
-# ESP32-Elevator
+# ESP32 HX711 Load Cell Monitor
 
-ESP32-based elevator control system
+Prosty projekt ESP32 do odczytu wagi z belki tensometrycznej przez wzmacniacz HX711.
 
-## Overview
+## 📋 Opis
 
-This project implements an elevator control system using the ESP32 microcontroller. The system manages elevator operations including floor selection, door control, safety features, and motor control.
+Ten projekt umożliwia odczyt wagi z belki tensometrycznej podłączonej przez wzmacniacz HX711 do mikrokontrolera ESP32. Idealny do projektów wymagających pomiaru masy, takich jak:
+- Wagi
+- Monitorowanie obciążenia
+- Systemy kontroli wagi
+- Projekty automatyki
 
-## Features
+## 🔌 Podłączenie Sprzętowe
 
-- Multi-floor elevator control
-- Floor selection buttons with LED indicators
-- Door open/close control
-- Emergency stop functionality
-- Overload detection
-- Position tracking
-- Real-time status monitoring
+### HX711 Load Cell Amplifier
+- **DT (Data)**: GPIO13 (kabel pomarańczowy)
+- **SCK (Clock)**: GPIO14 (kabel żółty)
+- **VCC**: 3.3V lub 5V (w zależności od modułu)
+- **GND**: GND
 
-## Hardware Requirements
+### Belka Tensometryczna → HX711
+- **E+ (Excitation+)**: Czerwony
+- **E- (Excitation-)**: Czarny
+- **A+ (Signal+)**: Biały
+- **A- (Signal-)**: Zielony
 
-- ESP32 development board (ESP32-DevKitC or similar)
-- Motor driver module (L298N or similar)
-- DC motor for elevator movement
-- Door servo motor
-- Floor sensors (limit switches or IR sensors)
-- Push buttons for floor selection
-- LED indicators
-- Emergency stop button
-- **HX711 Load Cell Amplifier** - connected to GPIO13 (DT-orange) and GPIO14 (SCK-yellow)
-- **Load Cell (Tensometric Beam)** - for weight/overload detection
+```
+ESP32          HX711          Load Cell
+              ┌─────┐
+GPIO13 ──────►│ DT  │
+GPIO14 ──────►│ SCK │         E+ ← Czerwony
+3.3V   ──────►│ VCC │         E- ← Czarny
+GND    ──────►│ GND │         A+ ← Biały
+              │     │         A- ← Zielony
+              └─────┘
+```
 
-## Software Requirements
+## 🚀 Szybki Start
 
-- ESP-IDF (Espressif IoT Development Framework) v5.0 or later
-- Python 3.7 or later
-- Git
+### 1. Zainstaluj ESP-IDF
 
-## Getting Started
-
-### 1. Install ESP-IDF
-
-Follow the official ESP-IDF installation guide:
+Pobierz i zainstaluj ESP-IDF (wersja 5.0 lub nowsza):
 https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/
 
-### 2. Clone the Repository
+### 2. Sklonuj Repozytorium
 
 ```bash
-git clone <repository-url>
+git clone <url-repozytorium>
 cd ESP32-Elevator
 ```
 
-### 3. Configure the Project
+### 3. Kalibracja (Ważne!)
+
+Przed pierwszym użyciem musisz skalibrować HX711:
+
+1. Przeczytaj szczegółową instrukcję w `CALIBRATION_GUIDE.md`
+2. Odkomentuj sekcję kalibracji w `main/main.c`
+3. Zbuduj i wgraj kod
+4. Postępuj zgodnie z instrukcjami na monitorze szeregowym
+5. Zaktualizuj wartości w `main/hx711_config.h`:
+   - `HX711_OFFSET` - wartość tary (waga bez obciążenia)
+   - `HX711_CALIBRATION_FACTOR` - współczynnik kalibracji
+
+### 4. Budowanie i Wgrywanie
 
 ```bash
+# Konfiguracja projektu (opcjonalnie)
 idf.py menuconfig
-```
 
-### 4. Build the Project
-
-```bash
+# Budowanie
 idf.py build
-```
 
-### 5. Flash to ESP32
-
-```bash
+# Wgranie do ESP32 i uruchomienie monitora
 idf.py -p /dev/ttyUSB0 flash monitor
 ```
 
-Replace `/dev/ttyUSB0` with your ESP32's serial port.
+Zamień `/dev/ttyUSB0` na port szeregowy twojego ESP32:
+- Linux/Mac: `/dev/ttyUSB0` lub `/dev/cu.usbserial-*`
+- Windows: `COM3`, `COM4`, etc.
 
-## Project Structure
+## 📁 Struktura Projektu
 
 ```
 ESP32-Elevator/
 ├── main/
-│   ├── main.c              # Main application entry point
-│   ├── elevator_control.c  # Elevator logic
-│   ├── elevator_control.h
-│   ├── motor_control.c     # Motor driver interface
-│   ├── motor_control.h
-│   ├── door_control.c      # Door servo control
-│   ├── door_control.h
-│   ├── sensor_interface.c  # Floor sensors and buttons
-│   ├── sensor_interface.h
+│   ├── main.c              # Główny program
+│   ├── hx711.c             # Sterownik HX711
+│   ├── hx711.h             # Nagłówek HX711
+│   ├── hx711_config.h      # Konfiguracja pinów i kalibracji
 │   └── CMakeLists.txt
-├── CMakeLists.txt
-├── README.md
-└── sdkconfig
+├── CMakeLists.txt          # Główna konfiguracja CMake
+├── CALIBRATION_GUIDE.md    # Szczegółowa instrukcja kalibracji
+├── README.md               # Ten plik
+└── LICENSE
 ```
 
-## Configuration
+## ⚙️ Konfiguracja
 
-Edit `main/elevator_config.h` to configure:
-- Number of floors
-- GPIO pin assignments
-- Motor parameters
-- Safety timeouts
-- Sensor thresholds
-- **HX711 calibration values** (see CALIBRATION_GUIDE.md)
+Edytuj `main/hx711_config.h`:
 
-### Load Cell Calibration
+```c
+// Piny GPIO
+#define HX711_DT_PIN GPIO_NUM_13    // Pomarańczowy - Data
+#define HX711_SCK_PIN GPIO_NUM_14   // Żółty - Clock
 
-Before first use, calibrate the HX711 load cell:
+// Wartości kalibracji (zaktualizuj po kalibracji!)
+#define HX711_CALIBRATION_FACTOR -7050.0
+#define HX711_OFFSET 50682624
 
-1. See detailed instructions in `CALIBRATION_GUIDE.md`
-2. Run calibration procedure to get OFFSET and CALIBRATION_FACTOR
-3. Update values in `main/elevator_config.h`
-
-Current HX711 pin assignment:
-- **DT (Data)**: GPIO13 (Orange wire)
-- **SCK (Clock)**: GPIO14 (Yellow wire)
-
-## Usage
-
-1. Power on the ESP32
-2. The elevator will initialize and move to the ground floor
-3. Press floor buttons to select destination
-4. The elevator will queue multiple requests
-5. Use the emergency stop button in case of emergency
-
-## Safety Features
-
-- Emergency stop override
-- Door obstruction detection
-- Overload protection
-- Floor limit switches
-- Motor current monitoring
-- Timeout protections
-
-## Development
-
-### Adding New Features
-
-1. Create feature branch: `git checkout -b feature/your-feature`
-2. Make changes and test thoroughly
-3. Commit changes: `git commit -m "Add your feature"`
-4. Push branch: `git push origin feature/your-feature`
-
-### Testing
-
-Always test on the hardware before deploying to production. Use the monitor for debugging:
-
-```bash
-idf.py monitor
+// Ustawienia pomiaru
+#define READINGS_PER_SAMPLE 10      // Liczba odczytów do uśrednienia
+#define UPDATE_INTERVAL_MS 1000     // Częstotliwość odczytu (ms)
 ```
 
-## Troubleshooting
+## 📊 Przykładowe Wyjście
 
-### Elevator doesn't move
-- Check motor driver connections
-- Verify GPIO pin configuration
-- Check power supply
+```
+I (324) HX711_DEMO: ===========================================
+I (334) HX711_DEMO:     HX711 Load Cell Weight Monitor
+I (334) HX711_DEMO: ===========================================
+I (344) HX711_DEMO: DT Pin:  GPIO13 (Orange)
+I (344) HX711_DEMO: SCK Pin: GPIO14 (Yellow)
+I (354) HX711_DEMO: ===========================================
+I (364) HX711_DEMO: Initializing HX711...
+I (364) HX711: HX711 initialized on DT=GPIO13, SCK=GPIO14
+I (374) HX711_DEMO: HX711 initialized successfully!
+I (384) HX711_DEMO: Starting continuous weight monitoring...
+I (1394) HX711_DEMO: [1] Weight: 0.00 kg | Raw: 50682540
+I (2404) HX711_DEMO: [2] Weight: 0.02 kg | Raw: 50682680
+I (3414) HX711_DEMO: [3] Weight: 1.05 kg | Raw: 50675226
+I (4424) HX711_DEMO: [4] Weight: 5.23 kg | Raw: 50645774
+```
 
-### Incorrect floor detection
-- Calibrate floor sensors
-- Check sensor wiring
-- Adjust sensor thresholds in config
+## 🔧 Rozwiązywanie Problemów
 
-### Door issues
-- Check servo connections
-- Verify servo power supply
-- Adjust PWM parameters
+### Problem: "HX711 not ready"
+**Rozwiązanie:**
+- Sprawdź połączenia DT i SCK
+- Sprawdź zasilanie HX711 (VCC i GND)
+- Upewnij się, że belka jest podłączona do HX711
 
-## License
+### Problem: Odczyty niestabilne
+**Rozwiązanie:**
+- Dodaj kondensator 100nF między VCC a GND HX711
+- Użyj ekranowanych kabli dla belki tensometrycznej
+- Trzymaj kable z dala od źródeł zakłóceń
+- Sprawdź jakość połączeń (luźne kable)
 
-MIT License - See LICENSE file for details
+### Problem: Wartości zawsze 0 lub bardzo duże liczby
+**Rozwiązanie:**
+- Przeprowadź ponowną kalibrację
+- Sprawdź podłączenie belki (czy przewody E+, E-, A+, A- są prawidłowo podłączone)
+- Zweryfikuj wartości w `hx711_config.h`
 
-## Contributing
+### Problem: Waga pokazuje wartości odwrotne (rośnie zamiast maleć)
+**Rozwiązanie:**
+- Zmień znak `HX711_CALIBRATION_FACTOR` (z minus na plus lub odwrotnie)
+- Lub zamień przewody A+ i A- belki
 
-Contributions are welcome! Please open an issue or submit a pull request.
+## 📖 Dodatkowe Informacje
 
-## Contact
+### Specyfikacja HX711
+- 24-bitowy przetwornik ADC
+- Wzmocnienie: 128 (kanał A), 64 (kanał A), 32 (kanał B)
+- Częstotliwość próbkowania: 10Hz lub 80Hz
+- Zakres napięcia: 2.6V - 5.5V
 
-For questions or support, please open an issue on GitHub.
+### Typowe Belki Tensometryczne
+- 1kg, 5kg, 10kg - małe wagi
+- 50kg, 100kg - średnie wagi, systemy kontroli
+- 200kg, 500kg - duże wagi, systemy przemysłowe
 
+## 📝 Licencja
+
+MIT License - zobacz plik LICENSE
+
+## 🤝 Wkład
+
+Pull requesty są mile widziane! W przypadku większych zmian, najpierw otwórz issue.
+
+## 📧 Kontakt
+
+W razie pytań otwórz issue na GitHubie.
+
+---
+
+**Uwaga:** Zawsze testuj system przed użyciem w aplikacjach krytycznych. Ten projekt jest dostarczany "jak jest" bez żadnych gwarancji.
