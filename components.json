@@ -1,0 +1,337 @@
+{
+  "project": "ESP32 Elevator Control System",
+  "version": "1.0",
+  "components": [
+    {
+      "id": "esp32",
+      "name": "ESP32 Development Board",
+      "model": "ESP32-WROOM-32",
+      "category": "controller",
+      "specifications": {
+        "voltage": "3.3V",
+        "power_input": "5V",
+        "gpio_pins": 34,
+        "connectivity": ["WiFi", "Bluetooth"]
+      },
+      "quantity": 1,
+      "estimated_cost": 15,
+      "supplier": "Amazon/AliExpress"
+    },
+    {
+      "id": "motor",
+      "name": "DC Worm Gear Motor",
+      "model": "GW4632-370",
+      "category": "actuator",
+      "specifications": {
+        "voltage": "12V DC",
+        "gear_ratio": "370:1",
+        "type": "Worm Gear"
+      },
+      "quantity": 1,
+      "estimated_cost": 75,
+      "supplier": "Motor suppliers"
+    },
+    {
+      "id": "motor_driver",
+      "name": "DR10050 UART Motor Driver",
+      "model": "DR10050",
+      "category": "driver",
+      "specifications": {
+        "motor_voltage": "12V",
+        "logic_voltage": "5V",
+        "interface": "UART",
+        "control": "PWM"
+      },
+      "quantity": 1,
+      "estimated_cost": 25,
+      "supplier": "Electronics stores"
+    },
+    {
+      "id": "load_cell",
+      "name": "HX711 Load Cell ADC",
+      "model": "HX711",
+      "category": "sensor",
+      "specifications": {
+        "resolution": "24-bit",
+        "voltage": "3.3V/5V",
+        "interface": "Serial"
+      },
+      "quantity": 1,
+      "estimated_cost": 12,
+      "supplier": "Amazon/AliExpress"
+    },
+    {
+      "id": "power_supply",
+      "name": "AC/DC Power Supply",
+      "model": "220V to 12V",
+      "category": "power",
+      "specifications": {
+        "input": "220V AC",
+        "output": "12V DC",
+        "current": "10A"
+      },
+      "quantity": 1,
+      "estimated_cost": 30,
+      "supplier": "Electronics stores"
+    },
+    {
+      "id": "dc_converter",
+      "name": "12V to 5V DC Converter",
+      "model": "Step-down converter",
+      "category": "power",
+      "specifications": {
+        "input": "12V DC",
+        "output": "5V DC",
+        "current": "3A"
+      },
+      "quantity": 1,
+      "estimated_cost": 8,
+      "supplier": "Amazon/AliExpress"
+    },
+    {
+      "id": "fuse",
+      "name": "10A Fuse",
+      "model": "Fast-blow fuse",
+      "category": "safety",
+      "specifications": {
+        "rating": "10A",
+        "type": "Fast-blow"
+      },
+      "quantity": 2,
+      "estimated_cost": 3,
+      "supplier": "Electronics stores"
+    },
+    {
+      "id": "emergency_button",
+      "name": "Emergency Cut-off Button",
+      "model": "NC Push Button",
+      "category": "safety",
+      "specifications": {
+        "rating": "10A",
+        "type": "Normally Closed"
+      },
+      "quantity": 1,
+      "estimated_cost": 15,
+      "supplier": "Electrical supply stores"
+    },
+    {
+      "id": "power_distribution",
+      "name": "Power Distribution Board",
+      "model": "Terminal block",
+      "category": "power",
+      "specifications": {
+        "terminals": "Multiple",
+        "rating": "10A"
+      },
+      "quantity": 1,
+      "estimated_cost": 8,
+      "supplier": "Electronics stores"
+    },
+    {
+      "id": "level_converter",
+      "name": "Bi-directional Level Converter",
+      "model": "5V to 3.3V",
+      "category": "interface",
+      "specifications": {
+        "input": "5V",
+        "output": "3.3V",
+        "type": "Bi-directional"
+      },
+      "quantity": 1,
+      "estimated_cost": 5,
+      "supplier": "Amazon/AliExpress"
+    },
+    {
+      "id": "motor_bracket",
+      "name": "Motor Mounting Bracket",
+      "model": "Aluminum bracket",
+      "category": "mechanical",
+      "specifications": {
+        "material": "Aluminum",
+        "compatibility": "GW4632-370"
+      },
+      "quantity": 1,
+      "estimated_cost": 20,
+      "supplier": "Hardware stores"
+    },
+    {
+      "id": "coupling",
+      "name": "Flexible Coupling",
+      "model": "Motor coupling",
+      "category": "mechanical",
+      "specifications": {
+        "type": "Flexible",
+        "material": "Steel"
+      },
+      "quantity": 1,
+      "estimated_cost": 15,
+      "supplier": "Motor suppliers"
+    },
+    {
+      "id": "emergency_stop",
+      "name": "Emergency Stop Switch",
+      "model": "Mushroom button",
+      "category": "safety",
+      "specifications": {
+        "type": "Mushroom button",
+        "rating": "10A",
+        "color": "Red"
+      },
+      "quantity": 1,
+      "estimated_cost": 25,
+      "supplier": "Electrical supply stores"
+    },
+    {
+      "id": "status_leds",
+      "name": "Status LEDs",
+      "model": "LED indicators",
+      "category": "interface",
+      "specifications": {
+        "colors": ["Red", "Green", "Blue"],
+        "voltage": "3.3V"
+      },
+      "quantity": 3,
+      "estimated_cost": 5,
+      "supplier": "Electronics stores"
+    },
+    {
+      "id": "power_cables",
+      "name": "Power Cables",
+      "model": "Multi-conductor cable",
+      "category": "cables",
+      "specifications": {
+        "gauge": "14 AWG",
+        "voltage": "12V",
+        "current": "10A"
+      },
+      "quantity": 5,
+      "estimated_cost": 20,
+      "supplier": "Electrical supply stores"
+    },
+    {
+      "id": "communication_cables",
+      "name": "Communication Cables",
+      "model": "Multi-conductor cable",
+      "category": "cables",
+      "specifications": {
+        "gauge": "18 AWG",
+        "conductors": 4,
+        "type": "Shielded"
+      },
+      "quantity": 3,
+      "estimated_cost": 15,
+      "supplier": "Electronics stores"
+    },
+    {
+      "id": "connectors",
+      "name": "Connectors and Terminals",
+      "model": "Various connectors",
+      "category": "cables",
+      "specifications": {
+        "types": ["Screw terminals", "JST", "Dupont"],
+        "rating": "10A"
+      },
+      "quantity": 20,
+      "estimated_cost": 25,
+      "supplier": "Electronics stores"
+    },
+    {
+      "id": "electrical_box",
+      "name": "Electrical Enclosure",
+      "model": "Plastic/Metal box",
+      "category": "enclosure",
+      "specifications": {
+        "material": "Plastic or Metal",
+        "size": "Appropriate for components",
+        "features": ["Mounting holes", "Cable entries"]
+      },
+      "quantity": 1,
+      "estimated_cost": 30,
+      "supplier": "Electrical supply stores"
+    },
+    {
+      "id": "cable_management",
+      "name": "Cable Management",
+      "model": "Cable ties and labels",
+      "category": "accessories",
+      "specifications": {
+        "types": ["Cable ties", "Labels", "Cable tray"],
+        "material": "Plastic"
+      },
+      "quantity": 1,
+      "estimated_cost": 10,
+      "supplier": "Hardware stores"
+    },
+    {
+      "id": "display",
+      "name": "OLED Display (Optional)",
+      "model": "0.96\" OLED",
+      "category": "interface",
+      "specifications": {
+        "size": "0.96 inch",
+        "interface": "I2C",
+        "resolution": "128x64"
+      },
+      "quantity": 1,
+      "estimated_cost": 8,
+      "supplier": "Amazon/AliExpress"
+    },
+    {
+      "id": "buzzer",
+      "name": "Piezo Buzzer",
+      "model": "Active buzzer",
+      "category": "interface",
+      "specifications": {
+        "type": "Piezo",
+        "voltage": "3.3V",
+        "frequency": "2.5kHz"
+      },
+      "quantity": 1,
+      "estimated_cost": 3,
+      "supplier": "Amazon/AliExpress"
+    },
+    {
+      "id": "temperature_sensor",
+      "name": "Temperature Sensor",
+      "model": "DS18B20",
+      "category": "sensor",
+      "specifications": {
+        "interface": "One-wire",
+        "range": "-55°C to +125°C",
+        "accuracy": "±0.5°C"
+      },
+      "quantity": 1,
+      "estimated_cost": 5,
+      "supplier": "Amazon/AliExpress"
+    }
+  ],
+  "total_estimated_cost": 350,
+  "categories": {
+    "controller": 1,
+    "actuator": 1,
+    "driver": 1,
+    "sensor": 2,
+    "power": 3,
+    "safety": 3,
+    "interface": 4,
+    "mechanical": 2,
+    "cables": 3,
+    "enclosure": 1,
+    "accessories": 1
+  },
+  "suppliers": [
+    "Amazon",
+    "AliExpress", 
+    "Electronics stores",
+    "Motor suppliers",
+    "Electrical supply stores",
+    "Hardware stores"
+  ],
+  "notes": [
+    "Order spares for critical components",
+    "Verify voltage and current ratings",
+    "Use reputable suppliers for safety components",
+    "Keep datasheets and manuals",
+    "Test all components before installation"
+  ]
+}
