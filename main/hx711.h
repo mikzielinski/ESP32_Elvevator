@@ -29,6 +29,7 @@ void hx711_set_gain(hx711_t* hx711, hx711_gain_t gain);
 void hx711_tare(hx711_t* hx711, int times);
 void hx711_set_scale(hx711_t* hx711, float scale);
 void hx711_set_offset(hx711_t* hx711, long offset);
+void hx711_zero_scale(hx711_t* hx711);
 float hx711_get_units(hx711_t* hx711, int times);
 float hx711_get_value(hx711_t* hx711, int times);
 void hx711_power_down(hx711_t* hx711);

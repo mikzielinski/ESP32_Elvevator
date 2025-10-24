@@ -145,6 +145,14 @@ void hx711_set_offset(hx711_t* hx711, long offset)
     ESP_LOGI(TAG, "Offset set to: %ld", offset);
 }
 
+void hx711_zero_scale(hx711_t* hx711)
+{
+    // Read current raw value and set it as the new offset
+    long raw_value = hx711_read_average(hx711, 10);
+    hx711->offset = raw_value;
+    ESP_LOGI(TAG, "Scale zeroed. New offset: %ld", raw_value);
+}
+
 float hx711_get_value(hx711_t* hx711, int times)
 {
     return (float)(hx711_read_average(hx711, times) - hx711->offset);

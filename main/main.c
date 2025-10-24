@@ -4,6 +4,9 @@
 #include "esp_log.h"
 #include "hx711.h"
 #include "hx711_config.h"
+#include "wifi_manager.h"
+#include "web_server.h"
+#include "motor_control.h"
 
 static const char *TAG = "HX711_DEMO";
 static hx711_t scale;
@@ -11,11 +14,16 @@ static hx711_t scale;
 void app_main(void)
 {
     ESP_LOGI(TAG, "===========================================");
-    ESP_LOGI(TAG, "    HX711 Load Cell Weight Monitor");
+    ESP_LOGI(TAG, "  HX711 Load Cell WiFi Dashboard");
     ESP_LOGI(TAG, "===========================================");
     ESP_LOGI(TAG, "DT Pin:  GPIO%d (Orange)", HX711_DT_PIN);
     ESP_LOGI(TAG, "SCK Pin: GPIO%d (Yellow)", HX711_SCK_PIN);
     ESP_LOGI(TAG, "===========================================");
+    
+    // Initialize WiFi
+    ESP_LOGI(TAG, "Connecting to WiFi...");
+    wifi_init();
+    ESP_LOGI(TAG, "WiFi connected! IP: %s", wifi_get_ip());
     
     // Initialize HX711
     ESP_LOGI(TAG, "Initializing HX711...");
@@ -26,8 +34,31 @@ void app_main(void)
     hx711_set_offset(&scale, HX711_OFFSET);
     
     ESP_LOGI(TAG, "HX711 initialized successfully!");
+    
+    // Initialize motor control
+    ESP_LOGI(TAG, "Initializing motor control...");
+    motor_control_init();
+    ESP_LOGI(TAG, "Motor control initialized!");
+    
+    // Test motor commands
+    ESP_LOGI(TAG, "Testing motor commands...");
+    motor_test_commands();
+    
+    // Check motor power status
+    ESP_LOGI(TAG, "Checking motor power status...");
+    motor_check_power();
+    
+    // Start web server
+    ESP_LOGI(TAG, "Starting web server...");
+    web_server_init();
+    
+    // Set HX711 pointer for web server zeroing functionality
+    web_server_set_hx711(&scale);
+    
     ESP_LOGI(TAG, "");
-    ESP_LOGI(TAG, "NOTE: To calibrate, see CALIBRATION_GUIDE.md");
+    ESP_LOGI(TAG, "========================================");
+    ESP_LOGI(TAG, "  Dashboard: http://%s", wifi_get_ip());
+    ESP_LOGI(TAG, "========================================");
     ESP_LOGI(TAG, "");
     
     // Option to run calibration mode
@@ -58,7 +89,7 @@ void app_main(void)
     ESP_LOGI(TAG, "");
     */
     
-    // Main loop - continuous weight reading
+    // Main loop - continuous weight reading and web updates
     ESP_LOGI(TAG, "Starting continuous weight monitoring...");
     ESP_LOGI(TAG, "");
     
@@ -75,8 +106,13 @@ void app_main(void)
             
             // Display results
             reading_count++;
-            ESP_LOGI(TAG, "[%d] Weight: %.2f kg | Raw: %ld", 
+            ESP_LOGI(TAG, "[%d] Weight: %.2f kg | Raw: %ld",
                      reading_count, weight, raw_value);
+
+            // Process weight with smart averaging
+            if (wifi_is_connected()) {
+                web_server_process_weight(weight, raw_value);
+            }
             
             // Check for extreme values (possible error)
             if (weight < -10.0 || weight > 10000.0) {

@@ -4,7 +4,7 @@ import time
 import sys
 
 try:
-    ser = serial.Serial('/dev/cu.usbmodem21101', 115200, timeout=1)
+    ser = serial.Serial('/dev/cu.usbmodem5A671675611', 115200, timeout=1)
     print("Connected to ESP32-S3. Reading data...")
     print("=" * 80)
     

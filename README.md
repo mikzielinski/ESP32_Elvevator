@@ -1,14 +1,26 @@
-# ESP32 HX711 Load Cell Monitor
+# ESP32 HX711 Load Cell WiFi Dashboard
 
-Prosty projekt ESP32 do odczytu wagi z belki tensometrycznej przez wzmacniacz HX711.
+Real-time monitoring wagi z belki tensometrycznej przez HX711 z WiFi dashboardem!
 
 ## 📋 Opis
 
-Ten projekt umożliwia odczyt wagi z belki tensometrycznej podłączonej przez wzmacniacz HX711 do mikrokontrolera ESP32. Idealny do projektów wymagających pomiaru masy, takich jak:
-- Wagi
-- Monitorowanie obciążenia
+Ten projekt umożliwia odczyt wagi z belki tensometrycznej podłączonej przez wzmacniacz HX711 do mikrokontrolera ESP32, z **real-time dashboardem WiFi**!
+
+## ✨ Funkcje
+
+- 📊 **Web Dashboard** - piękny interfejs w przeglądarce
+- 📡 **WiFi** - dostęp z dowolnego urządzenia w sieci
+- ⚡ **WebSocket** - dane w czasie rzeczywistym
+- 📈 **Live wykres** - historia pomiarów
+- 🎯 **Zerowanie (Tara)** - funkcja jak w sklepowej wadze
+- 📱 **Mobile-friendly** - działa na telefonach
+
+Idealny do projektów:
+- Inteligentne wagi
+- IoT monitoring obciążenia
 - Systemy kontroli wagi
-- Projekty automatyki
+- Home automation
+- Przemysłowy monitoring
 
 ## 🔌 Podłączenie Sprzętowe
 
@@ -37,7 +49,15 @@ GND    ──────►│ GND │         A+ ← Biały
 
 ## 🚀 Szybki Start
 
-### 1. Zainstaluj ESP-IDF
+### 1. Konfiguruj WiFi
+
+Edytuj `main/wifi_config.h` i wpisz swoje dane WiFi:
+```c
+#define WIFI_SSID "TwojaSiecWiFi"
+#define WIFI_PASSWORD "TwojeHaslo"
+```
+
+### 2. Zainstaluj ESP-IDF
 
 Pobierz i zainstaluj ESP-IDF (wersja 5.0 lub nowsza):
 https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/
@@ -64,15 +84,23 @@ Przed pierwszym użyciem musisz skalibrować HX711:
 ### 4. Budowanie i Wgrywanie
 
 ```bash
-# Konfiguracja projektu (opcjonalnie)
-idf.py menuconfig
-
 # Budowanie
 idf.py build
 
 # Wgranie do ESP32 i uruchomienie monitora
-idf.py -p /dev/ttyUSB0 flash monitor
+idf.py -p /dev/cu.usbmodem21101 flash monitor
 ```
+
+### 5. Otwórz Dashboard 🎉
+
+W logach znajdź adres IP:
+```
+Dashboard: http://192.168.1.xxx
+```
+
+Otwórz ten adres w przeglądarce na komputerze/telefonie!
+
+📖 **Szczegóły**: Zobacz `WIFI_SETUP.md` dla pełnej instrukcji.
 
 Zamień `/dev/ttyUSB0` na port szeregowy twojego ESP32:
 - Linux/Mac: `/dev/ttyUSB0` lub `/dev/cu.usbserial-*`
