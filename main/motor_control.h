@@ -58,4 +58,14 @@ void motor_test_commands(void);
 // Check motor power status (READ ENABLE and DUTY registers)
 void motor_check_power(void);
 
+// Speed control functions
+void motor_set_speed(uint8_t speed_percent);  // 0-100%
+void motor_set_frequency(uint16_t freq_hz);   // 1-1000 Hz
+
+// Predefined speed functions
+void motor_forward_fast(void);     // 100% speed forward
+void motor_backward_fast(void);    // 100% speed backward
+void motor_forward_medium(void);   // 50% speed forward
+void motor_backward_medium(void);  // 50% speed backward
+
 #endif // MOTOR_CONTROL_H

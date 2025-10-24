@@ -48,12 +48,12 @@ void motor_control_init(void)
     freq_cmd[2] = (MODBUS_REG_FREQ >> 8) & 0xFF;
     freq_cmd[3] = MODBUS_REG_FREQ & 0xFF;
     freq_cmd[4] = 0x00;
-    freq_cmd[5] = 0x0A;  // Frequency = 10 (from Arduino example)
+    freq_cmd[5] = 0x64;  // Frequency = 100 Hz (increased from 10)
     uint16_t crc = calculate_crc(freq_cmd, 6);
-    freq_cmd[6] = (crc >> 8) & 0xFF;   // CRC_H (swap for DRI0050 HIGH→LOW)
-    freq_cmd[7] = crc & 0xFF;          // CRC_L (swap for DRI0050 HIGH→LOW)
+    freq_cmd[6] = crc & 0xFF;          // CRC_L
+    freq_cmd[7] = (crc >> 8) & 0xFF;   // CRC_H
     uart_write_bytes(MOTOR_UART_NUM, freq_cmd, 8);
-    ESP_LOGI(TAG, "PWM Frequency set to 10");
+    ESP_LOGI(TAG, "PWM Frequency set to 100 Hz");
     vTaskDelay(pdMS_TO_TICKS(50));
     
     // Step 2: Set PWM duty to 0 (register 0x0006)
@@ -65,8 +65,8 @@ void motor_control_init(void)
     duty_cmd[4] = 0x00;
     duty_cmd[5] = 0x00;  // Duty = 0
     crc = calculate_crc(duty_cmd, 6);
-    duty_cmd[6] = crc & 0xFF;          // CRC_L (already swapped in calculate_crc)
-    duty_cmd[7] = (crc >> 8) & 0xFF;   // CRC_H (already swapped in calculate_crc)
+    duty_cmd[6] = crc & 0xFF;          // CRC_L
+    duty_cmd[7] = (crc >> 8) & 0xFF;   // CRC_H
     uart_write_bytes(MOTOR_UART_NUM, duty_cmd, 8);
     ESP_LOGI(TAG, "PWM Duty set to 0");
     vTaskDelay(pdMS_TO_TICKS(50));
@@ -80,8 +80,8 @@ void motor_control_init(void)
     enable_cmd[4] = 0x00;
     enable_cmd[5] = 0x01;  // Enable = 1
     crc = calculate_crc(enable_cmd, 6);
-    enable_cmd[6] = crc & 0xFF;          // CRC_L (already swapped in calculate_crc)
-    enable_cmd[7] = (crc >> 8) & 0xFF;   // CRC_H (already swapped in calculate_crc)
+    enable_cmd[6] = crc & 0xFF;          // CRC_L
+    enable_cmd[7] = (crc >> 8) & 0xFF;   // CRC_H
     uart_write_bytes(MOTOR_UART_NUM, enable_cmd, 8);
     ESP_LOGI(TAG, "PWM Output ENABLED");
     vTaskDelay(pdMS_TO_TICKS(50));
@@ -91,21 +91,39 @@ void motor_control_init(void)
 
 void motor_start_forward(void)
 {
-    // Build ModBus RTU frame: [DEV_ADDR][FUNC][REG_HI][REG_LO][VAL_HI][VAL_LO][CRC_HI][CRC_LO]
+    // Set direction register first, then duty
     uint8_t cmd[8];
+    
+    // Step 1: Set direction register (0x000A) to 0 for forward
+    cmd[0] = MODBUS_DEV_ADDR;     // 0x32
+    cmd[1] = MODBUS_FUNC_WRITE;   // 0x06
+    cmd[2] = 0x00;                // Register high byte
+    cmd[3] = 0x0A;                // Register low byte (0x000A - direction register)
+    cmd[4] = 0x00;                // Value high byte (0)
+    cmd[5] = 0x00;                // Value low byte (0 = forward direction)
+    
+    uint16_t crc = calculate_crc(cmd, 6);
+    cmd[6] = crc & 0xFF;          // CRC_L
+    cmd[7] = (crc >> 8) & 0xFF;   // CRC_H
+    
+    ESP_LOGI(TAG, "Sending FORWARD direction command (0x000A=0): %02x %02x %02x %02x %02x %02x %02x %02x", 
+             cmd[0], cmd[1], cmd[2], cmd[3], cmd[4], cmd[5], cmd[6], cmd[7]);
+    uart_write_bytes(MOTOR_UART_NUM, cmd, MOTOR_CMD_LEN);
+    vTaskDelay(pdMS_TO_TICKS(50));
+    
+    // Step 2: Set duty for forward
     cmd[0] = MODBUS_DEV_ADDR;     // 0x32
     cmd[1] = MODBUS_FUNC_WRITE;   // 0x06
     cmd[2] = (MODBUS_REG_DUTY >> 8) & 0xFF;  // 0x00
     cmd[3] = MODBUS_REG_DUTY & 0xFF;         // 0x06
-    cmd[4] = 0x00;  // Value high byte (0)
-    cmd[5] = 0xFF;  // Value low byte (255 = 100% duty)
+    cmd[4] = 0x00;                // Value high byte (0)
+    cmd[5] = 0xFF;                // Value low byte (255 = 100% duty)
     
-    // Calculate CRC for first 6 bytes
-    uint16_t crc = calculate_crc(cmd, 6);
-    cmd[6] = (crc >> 8) & 0xFF;   // CRC_H (swap for DRI0050 HIGH→LOW)
-    cmd[7] = crc & 0xFF;          // CRC_L (swap for DRI0050 HIGH→LOW)
+    crc = calculate_crc(cmd, 6);
+    cmd[6] = crc & 0xFF;          // CRC_L
+    cmd[7] = (crc >> 8) & 0xFF;   // CRC_H
     
-    ESP_LOGI(TAG, "Sending FORWARD command (ModBus RTU): %02x %02x %02x %02x %02x %02x %02x %02x", 
+    ESP_LOGI(TAG, "Sending FORWARD duty command: %02x %02x %02x %02x %02x %02x %02x %02x", 
              cmd[0], cmd[1], cmd[2], cmd[3], cmd[4], cmd[5], cmd[6], cmd[7]);
     int bytes_written = uart_write_bytes(MOTOR_UART_NUM, cmd, MOTOR_CMD_LEN);
     ESP_LOGI(TAG, "Bytes written to UART: %d", bytes_written);
@@ -116,21 +134,39 @@ void motor_start_forward(void)
 
 void motor_start_backward(void)
 {
-    // Build ModBus RTU frame: [DEV_ADDR][FUNC][REG_HI][REG_LO][VAL_HI][VAL_LO][CRC_HI][CRC_LO]
+    // Try different approach: Set direction register first, then duty
     uint8_t cmd[8];
+    
+    // Step 1: Set direction register (0x000A) to 1 for reverse
+    cmd[0] = MODBUS_DEV_ADDR;     // 0x32
+    cmd[1] = MODBUS_FUNC_WRITE;   // 0x06
+    cmd[2] = 0x00;                // Register high byte
+    cmd[3] = 0x0A;                // Register low byte (0x000A - direction register)
+    cmd[4] = 0x00;                // Value high byte (0)
+    cmd[5] = 0x01;                // Value low byte (1 = reverse direction)
+    
+    uint16_t crc = calculate_crc(cmd, 6);
+    cmd[6] = crc & 0xFF;          // CRC_L
+    cmd[7] = (crc >> 8) & 0xFF;   // CRC_H
+    
+    ESP_LOGI(TAG, "Sending BACKWARD direction command (0x000A=1): %02x %02x %02x %02x %02x %02x %02x %02x", 
+             cmd[0], cmd[1], cmd[2], cmd[3], cmd[4], cmd[5], cmd[6], cmd[7]);
+    uart_write_bytes(MOTOR_UART_NUM, cmd, MOTOR_CMD_LEN);
+    vTaskDelay(pdMS_TO_TICKS(50));
+    
+    // Step 2: Set duty for backward
     cmd[0] = MODBUS_DEV_ADDR;     // 0x32
     cmd[1] = MODBUS_FUNC_WRITE;   // 0x06
     cmd[2] = (MODBUS_REG_DUTY >> 8) & 0xFF;  // 0x00
     cmd[3] = MODBUS_REG_DUTY & 0xFF;         // 0x06
-    cmd[4] = 0x00;  // Value high byte (0)
-    cmd[5] = 0xFF;  // Value low byte (255 = 100% duty)
+    cmd[4] = 0x00;                // Value high byte (0)
+    cmd[5] = 0xFF;                // Value low byte (255 = 100% duty)
     
-    // Calculate CRC for first 6 bytes
-    uint16_t crc = calculate_crc(cmd, 6);
-    cmd[6] = (crc >> 8) & 0xFF;   // CRC high byte
-    cmd[7] = crc & 0xFF;            // CRC low byte
+    crc = calculate_crc(cmd, 6);
+    cmd[6] = crc & 0xFF;          // CRC_L
+    cmd[7] = (crc >> 8) & 0xFF;   // CRC_H
     
-    ESP_LOGI(TAG, "Sending BACKWARD command (ModBus RTU): %02x %02x %02x %02x %02x %02x %02x %02x", 
+    ESP_LOGI(TAG, "Sending BACKWARD duty command: %02x %02x %02x %02x %02x %02x %02x %02x", 
              cmd[0], cmd[1], cmd[2], cmd[3], cmd[4], cmd[5], cmd[6], cmd[7]);
     int bytes_written = uart_write_bytes(MOTOR_UART_NUM, cmd, MOTOR_CMD_LEN);
     ESP_LOGI(TAG, "Bytes written to UART: %d", bytes_written);
@@ -152,8 +188,8 @@ void motor_stop(void)
     
     // Calculate CRC for first 6 bytes
     uint16_t crc = calculate_crc(cmd, 6);
-    cmd[6] = (crc >> 8) & 0xFF;   // CRC_H (swap for DRI0050 HIGH→LOW)
-    cmd[7] = crc & 0xFF;          // CRC_L (swap for DRI0050 HIGH→LOW)
+    cmd[6] = crc & 0xFF;          // CRC_L
+    cmd[7] = (crc >> 8) & 0xFF;   // CRC_H
     
     ESP_LOGI(TAG, "Sending STOP command (ModBus RTU): %02x %02x %02x %02x %02x %02x %02x %02x", 
              cmd[0], cmd[1], cmd[2], cmd[3], cmd[4], cmd[5], cmd[6], cmd[7]);
@@ -213,4 +249,133 @@ void motor_test_commands(void)
     vTaskDelay(pdMS_TO_TICKS(1000));
     
     ESP_LOGI(TAG, "=== MODBUS RTU MOTOR COMMAND TESTS COMPLETED ===");
+}
+
+void motor_check_power(void)
+{
+    ESP_LOGI(TAG, "=== CHECKING MOTOR POWER STATUS ===");
+    
+    // Read ENABLE register (0x0008)
+    uint8_t read_enable_cmd[8];
+    read_enable_cmd[0] = MODBUS_DEV_ADDR;     // 0x32
+    read_enable_cmd[1] = 0x03;                // Read Holding Registers
+    read_enable_cmd[2] = 0x00;                 // Register high byte
+    read_enable_cmd[3] = 0x08;                 // Register low byte (0x0008)
+    read_enable_cmd[4] = 0x00;                 // Number of registers high
+    read_enable_cmd[5] = 0x01;                 // Number of registers low (1 register)
+    
+    uint16_t crc = calculate_crc(read_enable_cmd, 6);
+    read_enable_cmd[6] = crc & 0xFF;           // CRC_L
+    read_enable_cmd[7] = (crc >> 8) & 0xFF;    // CRC_H
+    
+    ESP_LOGI(TAG, "Reading ENABLE register: %02x %02x %02x %02x %02x %02x %02x %02x", 
+             read_enable_cmd[0], read_enable_cmd[1], read_enable_cmd[2], read_enable_cmd[3], 
+             read_enable_cmd[4], read_enable_cmd[5], read_enable_cmd[6], read_enable_cmd[7]);
+    
+    uart_write_bytes(MOTOR_UART_NUM, read_enable_cmd, 8);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    
+    // Read DUTY register (0x0006)
+    uint8_t read_duty_cmd[8];
+    read_duty_cmd[0] = MODBUS_DEV_ADDR;        // 0x32
+    read_duty_cmd[1] = 0x03;                   // Read Holding Registers
+    read_duty_cmd[2] = 0x00;                   // Register high byte
+    read_duty_cmd[3] = 0x06;                   // Register low byte (0x0006)
+    read_duty_cmd[4] = 0x00;                   // Number of registers high
+    read_duty_cmd[5] = 0x01;                   // Number of registers low (1 register)
+    
+    crc = calculate_crc(read_duty_cmd, 6);
+    read_duty_cmd[6] = crc & 0xFF;             // CRC_L
+    read_duty_cmd[7] = (crc >> 8) & 0xFF;      // CRC_H
+    
+    ESP_LOGI(TAG, "Reading DUTY register: %02x %02x %02x %02x %02x %02x %02x %02x", 
+             read_duty_cmd[0], read_duty_cmd[1], read_duty_cmd[2], read_duty_cmd[3], 
+             read_duty_cmd[4], read_duty_cmd[5], read_duty_cmd[6], read_duty_cmd[7]);
+    
+    uart_write_bytes(MOTOR_UART_NUM, read_duty_cmd, 8);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    
+    ESP_LOGI(TAG, "Power status check commands sent to motor driver");
+    ESP_LOGI(TAG, "=== MOTOR POWER STATUS CHECK COMPLETED ===");
+}
+
+// Set motor speed (0-100%)
+void motor_set_speed(uint8_t speed_percent)
+{
+    if (speed_percent > 100) speed_percent = 100;
+    
+    uint16_t duty_value = (speed_percent * 255) / 100;  // Convert to 0-255 range
+    
+    uint8_t cmd[8];
+    cmd[0] = MODBUS_DEV_ADDR;     // 0x32
+    cmd[1] = MODBUS_FUNC_WRITE;   // 0x06
+    cmd[2] = (MODBUS_REG_DUTY >> 8) & 0xFF;  // 0x00
+    cmd[3] = MODBUS_REG_DUTY & 0xFF;         // 0x06
+    cmd[4] = (duty_value >> 8) & 0xFF;       // High byte
+    cmd[5] = duty_value & 0xFF;              // Low byte
+    
+    uint16_t crc = calculate_crc(cmd, 6);
+    cmd[6] = crc & 0xFF;          // CRC_L
+    cmd[7] = (crc >> 8) & 0xFF;   // CRC_H
+    
+    ESP_LOGI(TAG, "Setting motor speed to %d%% (duty: %d): %02x %02x %02x %02x %02x %02x %02x %02x", 
+             speed_percent, duty_value, cmd[0], cmd[1], cmd[2], cmd[3], cmd[4], cmd[5], cmd[6], cmd[7]);
+    uart_write_bytes(MOTOR_UART_NUM, cmd, MOTOR_CMD_LEN);
+    vTaskDelay(pdMS_TO_TICKS(30));
+}
+
+// Set motor frequency (1-1000 Hz)
+void motor_set_frequency(uint16_t freq_hz)
+{
+    if (freq_hz < 1) freq_hz = 1;
+    if (freq_hz > 1000) freq_hz = 1000;
+    
+    uint8_t cmd[8];
+    cmd[0] = MODBUS_DEV_ADDR;     // 0x32
+    cmd[1] = MODBUS_FUNC_WRITE;   // 0x06
+    cmd[2] = (MODBUS_REG_FREQ >> 8) & 0xFF;  // 0x00
+    cmd[3] = MODBUS_REG_FREQ & 0xFF;         // 0x07
+    cmd[4] = (freq_hz >> 8) & 0xFF;          // High byte
+    cmd[5] = freq_hz & 0xFF;                 // Low byte
+    
+    uint16_t crc = calculate_crc(cmd, 6);
+    cmd[6] = crc & 0xFF;          // CRC_L
+    cmd[7] = (crc >> 8) & 0xFF;   // CRC_H
+    
+    ESP_LOGI(TAG, "Setting motor frequency to %d Hz: %02x %02x %02x %02x %02x %02x %02x %02x", 
+             freq_hz, cmd[0], cmd[1], cmd[2], cmd[3], cmd[4], cmd[5], cmd[6], cmd[7]);
+    uart_write_bytes(MOTOR_UART_NUM, cmd, MOTOR_CMD_LEN);
+    vTaskDelay(pdMS_TO_TICKS(30));
+}
+
+// High speed forward (100% speed)
+void motor_forward_fast(void)
+{
+    ESP_LOGI(TAG, "Starting motor FORWARD at HIGH SPEED");
+    motor_start_forward();
+    motor_set_speed(100);  // 100% speed
+}
+
+// High speed backward (100% speed)
+void motor_backward_fast(void)
+{
+    ESP_LOGI(TAG, "Starting motor BACKWARD at HIGH SPEED");
+    motor_start_backward();
+    motor_set_speed(100);  // 100% speed
+}
+
+// Medium speed forward (50% speed)
+void motor_forward_medium(void)
+{
+    ESP_LOGI(TAG, "Starting motor FORWARD at MEDIUM SPEED");
+    motor_start_forward();
+    motor_set_speed(50);  // 50% speed
+}
+
+// Medium speed backward (50% speed)
+void motor_backward_medium(void)
+{
+    ESP_LOGI(TAG, "Starting motor BACKWARD at MEDIUM SPEED");
+    motor_start_backward();
+    motor_set_speed(50);  // 50% speed
 }
