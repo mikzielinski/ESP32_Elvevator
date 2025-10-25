@@ -4,7 +4,7 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "hx711.h"
-#include "motor_control.h"
+#include "motor_control_bts7960.h"
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
@@ -23,14 +23,26 @@ static int sample_count = 0;
 static float last_stable_weight = 0.0;
 
 // Motor control system
-static bool motor_auto_mode = false;
-static float weight_threshold = 3.0; // kg
+static bool motor_auto_mode = true;  // Enable auto mode by default
+static float weight_threshold = 0.2; // kg - default threshold for auto trigger
 static bool motor_was_triggered = false;
+
+// Function to reset motor state (for system startup)
+void web_server_reset_motor_state(void)
+{
+    motor_was_triggered = false;
+    ESP_LOGI(TAG, "🔄 Motor state reset on system startup");
+}
 
 // Motor control API handlers
 static esp_err_t motor_forward_handler(httpd_req_t *req)
 {
     motor_start_forward();
+    // Set motor state to prevent auto control from interfering
+    motor_was_triggered = true;
+    // Temporarily disable auto mode to prevent interference
+    motor_auto_mode = false;
+    ESP_LOGI(TAG, "🔄 Motor started manually FORWARD - disabling auto mode to prevent interference");
     char json[64];
     snprintf(json, sizeof(json), "{\"status\":\"forward\",\"success\":true}");
     httpd_resp_set_type(req, "application/json");
@@ -41,6 +53,11 @@ static esp_err_t motor_forward_handler(httpd_req_t *req)
 static esp_err_t motor_backward_handler(httpd_req_t *req)
 {
     motor_start_backward();
+    // Set motor state to prevent auto control from interfering
+    motor_was_triggered = true;
+    // Temporarily disable auto mode to prevent interference
+    motor_auto_mode = false;
+    ESP_LOGI(TAG, "🔄 Motor started manually BACKWARD - disabling auto mode to prevent interference");
     char json[64];
     snprintf(json, sizeof(json), "{\"status\":\"backward\",\"success\":true}");
     httpd_resp_set_type(req, "application/json");
@@ -51,8 +68,37 @@ static esp_err_t motor_backward_handler(httpd_req_t *req)
 static esp_err_t motor_stop_handler(httpd_req_t *req)
 {
     motor_stop();
+    // Reset motor state to allow auto control to work again
+    motor_was_triggered = false;
+    // Re-enable auto mode
+    motor_auto_mode = true;
+    ESP_LOGI(TAG, "🛑 Motor stopped manually - re-enabling auto control mode");
     char json[64];
     snprintf(json, sizeof(json), "{\"status\":\"stopped\",\"success\":true}");
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, json, HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+static esp_err_t motor_reset_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "🔄 Motor system reset requested");
+    
+    // Stop motor first
+    motor_stop();
+    
+    // Reset all motor states
+    motor_was_triggered = false;
+    motor_auto_mode = true;
+    
+    // Re-initialize motor driver
+    ESP_LOGI(TAG, "🔄 Re-initializing motor driver...");
+    motor_control_init();
+    vTaskDelay(pdMS_TO_TICKS(100)); // Give time for initialization
+    
+    ESP_LOGI(TAG, "✅ Motor system reset completed");
+    char json[128];
+    snprintf(json, sizeof(json), "{\"status\":\"reset\",\"auto_mode\":true,\"triggered\":false,\"success\":true}");
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, json, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
@@ -71,16 +117,24 @@ static esp_err_t motor_auto_handler(httpd_req_t *req)
 
 static esp_err_t motor_threshold_handler(httpd_req_t *req)
 {
-    char buf[100];
-    int ret = httpd_req_recv(req, buf, sizeof(buf));
-    if (ret > 0) {
-        buf[ret] = '\0';
-        // Simple JSON parsing for threshold
-        char *threshold_str = strstr(buf, "\"threshold\":");
-        if (threshold_str) {
-            threshold_str += 12; // Skip "threshold":
-            weight_threshold = atof(threshold_str);
-            ESP_LOGI(TAG, "Weight threshold set to %.2f kg", weight_threshold);
+    if (req->method == HTTP_POST) {
+        char buf[100];
+        int ret = httpd_req_recv(req, buf, sizeof(buf));
+        if (ret > 0) {
+            buf[ret] = '\0';
+            ESP_LOGI(TAG, "Received threshold data: %s", buf);
+            
+            // Simple JSON parsing for threshold
+            char *threshold_str = strstr(buf, "\"threshold\":");
+            if (threshold_str) {
+                threshold_str += 12; // Skip "threshold":
+                weight_threshold = atof(threshold_str);
+                ESP_LOGI(TAG, "Weight threshold set to %.2f kg", weight_threshold);
+            } else {
+                ESP_LOGW(TAG, "No threshold found in data: %s", buf);
+            }
+        } else {
+            ESP_LOGW(TAG, "No data received for threshold");
         }
     }
     
@@ -162,6 +216,7 @@ static const char *html_dashboard =
 "<button onclick='motorForward()' id='btn-forward'>Forward</button>"
 "<button onclick='motorBackward()' id='btn-backward'>Backward</button>"
 "<button onclick='motorStop()' id='btn-stop'>Stop</button>"
+"<button onclick='motorReset()' id='btn-reset' style='background:#dc3545;color:white;'>Reset Motor</button>"
 "</div>"
 "</div>"
 "<div class='metric' style='background:#d1ecf1;border:2px solid #bee5eb;'>"
@@ -289,6 +344,25 @@ static const char *html_dashboard =
 "      console.error('Error stopping motor:',error);"
 "    });"
 "}"
+"function motorReset(){"
+"  if(confirm('Reset motor system? This will reinitialize the motor driver.')){"
+"    fetch('/api/motor/reset',{method:'POST'})"
+"      .then(response=>response.json())"
+"      .then(result=>{"
+"        console.log('Motor reset:',result);"
+"        document.getElementById('motor-status').textContent='Reset';"
+"        document.getElementById('motor-status').style.color='#6c757d';"
+"        document.getElementById('auto-status').textContent='Auto ON';"
+"        document.getElementById('auto-status').style.color='#28a745';"
+"        document.getElementById('btn-auto').textContent='Disable Auto';"
+"        alert('Motor system reset completed!');"
+"      })"
+"      .catch(error=>{"
+"        console.error('Error resetting motor:',error);"
+"        alert('Error resetting motor system');"
+"      });"
+"  }"
+"}"
 "function toggleAutoMode(){"
 "  fetch('/api/motor/auto',{method:'POST'})"
 "    .then(response=>response.json())"
@@ -400,6 +474,8 @@ void web_server_init(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.server_port = WEB_SERVER_PORT;
+    config.max_uri_handlers = 20;  // Increase from default 8 to 20
+    config.max_resp_headers = 10;  // Increase from default 8 to 10
     
     ESP_LOGI(TAG, "Starting web server on port %d", config.server_port);
     
@@ -456,6 +532,14 @@ void web_server_init(void)
         };
         httpd_register_uri_handler(server, &motor_stop);
         
+        httpd_uri_t motor_reset = {
+            .uri = "/api/motor/reset",
+            .method = HTTP_POST,
+            .handler = motor_reset_handler,
+            .user_ctx = NULL
+        };
+        httpd_register_uri_handler(server, &motor_reset);
+        
         httpd_uri_t motor_auto = {
             .uri = "/api/motor/auto",
             .method = HTTP_POST,
@@ -471,6 +555,7 @@ void web_server_init(void)
             .user_ctx = NULL
         };
         httpd_register_uri_handler(server, &motor_threshold);
+        ESP_LOGI(TAG, "Registered /api/motor/threshold endpoint");
         
         ESP_LOGI(TAG, "Web server started successfully");
     } else {
@@ -507,8 +592,58 @@ void web_server_process_weight(float weight_kg, long raw_value)
         stable_weight = weight_kg;
         first_run = false;
         ESP_LOGI(TAG, "✓ Initial weight set: %.2f kg", weight_kg);
+        
+        // Check motor auto control on first run
+        if (motor_auto_mode) {
+            if (weight_kg >= weight_threshold && !motor_was_triggered) {
+                motor_start_forward();
+                motor_was_triggered = true;
+                ESP_LOGI(TAG, "🚀 Motor started - weight %.2f kg >= threshold %.2f kg", 
+                         weight_kg, weight_threshold);
+            } else if (weight_kg < weight_threshold && motor_was_triggered) {
+                motor_stop();
+                motor_was_triggered = false;
+                ESP_LOGI(TAG, "🛑 Motor stopped - weight %.2f kg < threshold %.2f kg", 
+                         weight_kg, weight_threshold);
+            }
+        }
         return;
     }
+    
+    // Check motor auto control immediately for instant response
+    if (motor_auto_mode) {
+        // Check if motor was physically stopped (reset state if needed)
+        if (motor_was_triggered && weight_kg < weight_threshold) {
+            // Motor was running but weight is below threshold - reset state
+            motor_was_triggered = false;
+            ESP_LOGI(TAG, "🔄 Motor state reset - weight %.2f kg < threshold %.2f kg", 
+                     weight_kg, weight_threshold);
+            
+            // Send stop command to ensure motor driver is in known state
+            motor_stop();
+            ESP_LOGI(TAG, "🛑 Sending stop command to reset motor driver state");
+        }
+        
+        if (weight_kg >= weight_threshold && !motor_was_triggered) {
+            // Re-initialize motor driver before starting (in case it was physically stopped)
+            ESP_LOGI(TAG, "🔄 Re-initializing motor driver before start");
+            motor_control_init();
+            vTaskDelay(pdMS_TO_TICKS(100)); // Give time for initialization
+            
+            motor_start_forward();
+            motor_was_triggered = true;
+            ESP_LOGI(TAG, "🚀 Motor started - weight %.2f kg >= threshold %.2f kg", 
+                     weight_kg, weight_threshold);
+        } else if (weight_kg < weight_threshold && motor_was_triggered) {
+            motor_stop();
+            motor_was_triggered = false;
+            ESP_LOGI(TAG, "🛑 Motor stopped - weight %.2f kg < threshold %.2f kg", 
+                     weight_kg, weight_threshold);
+        }
+    }
+    
+    // Skip the stabilization process for instant response
+    return;
     
     // Check for significant weight change (threshold: 0.13 kg = 130g)
     float weight_change = fabs(weight_kg - last_stable_weight);
@@ -520,7 +655,7 @@ void web_server_process_weight(float weight_kg, long raw_value)
         calculation_start_ms = esp_timer_get_time() / 1000; // Get current time in milliseconds
         ESP_LOGI(TAG, "⚡ Weight change detected: %.2f kg → %.2f kg (Δ=%.2f kg)", 
                  last_stable_weight, weight_kg, weight_change);
-        ESP_LOGI(TAG, "⏱️  Starting 5-second measurement...");
+        ESP_LOGI(TAG, "⏱️  Starting 1-second measurement...");
     }
     
     if (is_calculating) {
@@ -534,7 +669,7 @@ void web_server_process_weight(float weight_kg, long raw_value)
         int64_t current_ms = esp_timer_get_time() / 1000;
         int64_t elapsed_ms = current_ms - calculation_start_ms;
         
-        if (elapsed_ms >= 5000) { // 5000 ms = 5 seconds
+        if (elapsed_ms >= 1000) { // 1000 ms = 1 second
             // Calculate average weight
             float sum = 0.0;
             for (int i = 0; i < sample_count; i++) {

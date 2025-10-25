@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 #include "hx711.h"
-#include "motor_control.h"
+#include "motor_control_bts7960.h"
 
 // Initialize web server
 void web_server_init(void);
@@ -22,6 +22,9 @@ void web_server_set_motor_auto_mode(bool enabled);
 bool web_server_get_motor_auto_mode(void);
 float web_server_get_weight_threshold(void);
 void web_server_set_weight_threshold(float threshold);
+
+// Reset motor state (for system startup)
+void web_server_reset_motor_state(void);
 
 #endif // WEB_SERVER_H
 

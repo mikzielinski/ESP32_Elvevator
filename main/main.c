@@ -6,7 +6,7 @@
 #include "hx711_config.h"
 #include "wifi_manager.h"
 #include "web_server.h"
-#include "motor_control.h"
+#include "motor_control_bts7960.h"
 
 static const char *TAG = "HX711_DEMO";
 static hx711_t scale;
@@ -41,16 +41,32 @@ void app_main(void)
     ESP_LOGI(TAG, "Motor control initialized!");
     
     // Test motor commands
-    ESP_LOGI(TAG, "Testing motor commands...");
-    motor_test_commands();
+    ESP_LOGI(TAG, "Testing BTS7960 motor commands...");
+    ESP_LOGI(TAG, "Test 1: Forward command");
+    motor_start_forward();
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    motor_stop();
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    
+    ESP_LOGI(TAG, "Test 2: Backward command");
+    motor_start_backward();
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    motor_stop();
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    
+    ESP_LOGI(TAG, "BTS7960 motor tests completed!");
     
     // Check motor power status
-    ESP_LOGI(TAG, "Checking motor power status...");
+    ESP_LOGI(TAG, "Checking BTS7960 power status...");
     motor_check_power();
     
     // Start web server
     ESP_LOGI(TAG, "Starting web server...");
     web_server_init();
+    
+    // Reset motor state on system startup (in case of power restoration)
+    ESP_LOGI(TAG, "Resetting motor state on startup...");
+    web_server_reset_motor_state();
     
     // Set HX711 pointer for web server zeroing functionality
     web_server_set_hx711(&scale);
@@ -61,33 +77,8 @@ void app_main(void)
     ESP_LOGI(TAG, "========================================");
     ESP_LOGI(TAG, "");
     
-    // Option to run calibration mode
-    // Uncomment the section below for calibration:
-    /*
-    ESP_LOGI(TAG, "=== CALIBRATION MODE ===");
-    ESP_LOGI(TAG, "Remove all weight from scale...");
-    vTaskDelay(pdMS_TO_TICKS(3000));
-    
-    ESP_LOGI(TAG, "Taring...");
-    hx711_tare(&scale, 20);
-    ESP_LOGI(TAG, "OFFSET = %ld", scale.offset);
-    ESP_LOGI(TAG, "Update HX711_OFFSET in hx711_config.h with this value");
-    ESP_LOGI(TAG, "");
-    
-    ESP_LOGI(TAG, "Place known weight (e.g., 1 kg) and wait...");
-    vTaskDelay(pdMS_TO_TICKS(5000));
-    
-    long raw_value = hx711_read_average(&scale, 10);
-    long value = raw_value - scale.offset;
-    ESP_LOGI(TAG, "Raw value: %ld", raw_value);
-    ESP_LOGI(TAG, "Value (after offset): %ld", value);
-    ESP_LOGI(TAG, "For known weight, calculate:");
-    ESP_LOGI(TAG, "  CALIBRATION_FACTOR = %ld / weight_in_kg", value);
-    ESP_LOGI(TAG, "  Example for 1kg: %.2f", (float)value / 1.0);
-    ESP_LOGI(TAG, "Update HX711_CALIBRATION_FACTOR in hx711_config.h");
-    ESP_LOGI(TAG, "=== END CALIBRATION ===");
-    ESP_LOGI(TAG, "");
-    */
+    // Calibration mode - DISABLED (final calibration completed)
+    ESP_LOGI(TAG, "HX711 final calibration completed and ready!");
     
     // Main loop - continuous weight reading and web updates
     ESP_LOGI(TAG, "Starting continuous weight monitoring...");
